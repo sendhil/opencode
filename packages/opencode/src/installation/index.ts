@@ -64,6 +64,23 @@ export function isLocal() {
   return InstallationChannel === "local"
 }
 
+export function isEphemeralBuild(version = InstallationVersion) {
+  // 0.0.0-* is the build script's default preview version. The -fork suffix is
+  // injected by setting OPENCODE_VERSION at build time so external tools (e.g.
+  // Cmux's >=1.14.50 fork-support gate) parse a SemVer-shaped string from
+  // `opencode --version`. Both shapes should still share the stable session
+  // database and skip update checks.
+  return version.startsWith("0.0.0-") || version.includes("-fork")
+}
+
+export function usesSharedDatabase(channel = InstallationChannel, version = InstallationVersion) {
+  return ["latest", "beta"].includes(channel) || channel === "local" || isEphemeralBuild(version)
+}
+
+export function shouldCheckForUpdates(channel = InstallationChannel, version = InstallationVersion) {
+  return !(channel === "local" || isEphemeralBuild(version))
+}
+
 export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
   stderr: Schema.String,
 }) {}

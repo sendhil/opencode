@@ -1,4 +1,4 @@
-import { describe, expect } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect, Layer, Stream } from "effect"
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
@@ -53,6 +53,34 @@ function testLayer(
 }
 
 describe("installation", () => {
+  describe("local build behavior", () => {
+    test("treats 0.0.0 branch builds and -fork SemVers as ephemeral", () => {
+      expect(Installation.isEphemeralBuild("0.0.0-dev-202603282008")).toBe(true)
+      expect(Installation.isEphemeralBuild("0.0.0-feature-202603282008")).toBe(true)
+      expect(Installation.isEphemeralBuild("1.15.6-fork")).toBe(true)
+      expect(Installation.isEphemeralBuild("1.3.3")).toBe(false)
+    })
+
+    test("uses the shared database for local and ephemeral builds", () => {
+      expect(Installation.usesSharedDatabase("latest", "1.3.3")).toBe(true)
+      expect(Installation.usesSharedDatabase("beta", "1.3.3-beta.1")).toBe(true)
+      expect(Installation.usesSharedDatabase("local", "local")).toBe(true)
+      expect(Installation.usesSharedDatabase("dev", "0.0.0-dev-202603282008")).toBe(true)
+      expect(Installation.usesSharedDatabase("feature/test", "0.0.0-feature-test-202603282008")).toBe(true)
+      expect(Installation.usesSharedDatabase("upstream-integration", "1.15.6-fork")).toBe(true)
+      expect(Installation.usesSharedDatabase("dev", "1.3.3")).toBe(false)
+    })
+
+    test("skips update checks for local and ephemeral builds", () => {
+      expect(Installation.shouldCheckForUpdates("latest", "1.3.3")).toBe(true)
+      expect(Installation.shouldCheckForUpdates("beta", "1.3.3-beta.1")).toBe(true)
+      expect(Installation.shouldCheckForUpdates("local", "local")).toBe(false)
+      expect(Installation.shouldCheckForUpdates("dev", "0.0.0-dev-202603282008")).toBe(false)
+      expect(Installation.shouldCheckForUpdates("feature/test", "0.0.0-feature-test-202603282008")).toBe(false)
+      expect(Installation.shouldCheckForUpdates("upstream-integration", "1.15.6-fork")).toBe(false)
+    })
+  })
+
   describe("latest", () => {
     testEffect(testLayer(() => jsonResponse({ tag_name: "v1.2.3" }))).effect(
       "reads release version from GitHub releases",
@@ -134,7 +162,6 @@ describe("installation", () => {
       testLayer(
         () => jsonResponse({ versions: { stable: "2.0.0" } }),
         (cmd, args) => {
-          // getBrewFormula: return core formula (no tap)
           if (cmd === "brew" && args.includes("--formula") && args.includes("anomalyco/tap/opencode")) return ""
           if (cmd === "brew" && args.includes("--formula") && args.includes("opencode")) return "opencode"
           return ""
