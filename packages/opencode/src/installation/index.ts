@@ -72,6 +72,18 @@ export namespace Installation {
     return CHANNEL === "local"
   }
 
+  export function isEphemeralBuild(version = VERSION) {
+    return version.startsWith("0.0.0-")
+  }
+
+  export function usesSharedDatabase(channel = CHANNEL, version = VERSION) {
+    return ["latest", "beta"].includes(channel) || channel === "local" || isEphemeralBuild(version)
+  }
+
+  export function shouldCheckForUpdates(channel = CHANNEL, version = VERSION) {
+    return !(channel === "local" || isEphemeralBuild(version))
+  }
+
   export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
     stderr: Schema.String,
   }) {}
