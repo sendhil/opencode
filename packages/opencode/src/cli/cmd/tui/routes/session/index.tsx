@@ -1428,13 +1428,13 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
         borderColor={theme.backgroundElement}
       >
         <code
+          fg={theme.textMuted}
           filetype="markdown"
           drawUnstyledText={false}
           streaming={true}
           syntaxStyle={subtleSyntax()}
-          content={"_Thinking:_ " + content()}
           conceal={ctx.conceal()}
-          fg={theme.textMuted}
+          content={"_Thinking:_ " + content()}
         />
       </box>
     </Show>
@@ -1450,23 +1450,23 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
         <Switch>
           <Match when={Flag.OPENCODE_EXPERIMENTAL_MARKDOWN}>
             <markdown
-              syntaxStyle={syntax()}
-              streaming={true}
-              content={props.part.text.trim()}
-              conceal={ctx.conceal()}
               fg={theme.markdownText}
               bg={theme.background}
+              syntaxStyle={syntax()}
+              streaming={true}
+              conceal={ctx.conceal()}
+              content={props.part.text.trim()}
             />
           </Match>
           <Match when={!Flag.OPENCODE_EXPERIMENTAL_MARKDOWN}>
             <code
+              fg={theme.text}
               filetype="markdown"
               drawUnstyledText={false}
               streaming={true}
               syntaxStyle={syntax()}
-              content={props.part.text.trim()}
               conceal={ctx.conceal()}
-              fg={theme.text}
+              content={props.part.text.trim()}
             />
           </Match>
         </Switch>
@@ -2035,6 +2035,7 @@ function Edit(props: ToolProps<typeof EditTool>) {
         <BlockTool title={"← Edit " + normalizePath(props.input.filePath!)} part={props.part}>
           <box paddingLeft={1}>
             <diff
+              fg={theme.text}
               diff={diffContent()}
               view={view()}
               filetype={ft()}
@@ -2042,7 +2043,6 @@ function Edit(props: ToolProps<typeof EditTool>) {
               showLineNumbers={true}
               width="100%"
               wrapMode={ctx.diffWrapMode()}
-              fg={theme.text}
               addedBg={theme.diffAddedBg}
               removedBg={theme.diffRemovedBg}
               contextBg={theme.diffContextBg}
@@ -2082,6 +2082,7 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
     return (
       <box paddingLeft={1}>
         <diff
+          fg={theme.text}
           diff={p.diff}
           view={view()}
           filetype={filetype(p.filePath)}
@@ -2089,7 +2090,6 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
           showLineNumbers={true}
           width="100%"
           wrapMode={ctx.diffWrapMode()}
-          fg={theme.text}
           addedBg={theme.diffAddedBg}
           removedBg={theme.diffRemovedBg}
           contextBg={theme.diffContextBg}
