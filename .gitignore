@@ -30,3 +30,9 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+
+# Allow the checked-in Claude-compatible local-build skill even when .claude is globally ignored
+!.claude/
+!.claude/skills/
+!.claude/skills/local-build/
+!.claude/skills/local-build/SKILL.md
