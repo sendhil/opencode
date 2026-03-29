@@ -1864,10 +1864,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     })
     const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
     let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
+    const isSkill = command.source === "skill"
 
     // If command doesn't explicitly handle arguments (no $N or $ARGUMENTS placeholders)
-    // but user provided arguments, append them to the template
-    if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
+    // but user provided arguments, append them to the template.
+    // For skills, arguments are added as a separate visible part below.
+    if (!isSkill && placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
       template = template + "\n\n" + input.arguments
     }
 
@@ -1925,6 +1927,17 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     }
 
     const templateParts = await resolvePromptParts(template)
+
+    // For skill-sourced commands, hide the template from the TUI but keep it
+    // in the LLM context. Show only the slash command invocation to the user.
+    if (isSkill) {
+      for (const part of templateParts) {
+        if (part.type === "text") (part as any).synthetic = true
+      }
+      const visible = input.arguments.trim() ? `/${input.command} ${input.arguments.trim()}` : `/${input.command}`
+      templateParts.push({ type: "text", text: visible })
+    }
+
     const isSubtask = (agent.mode === "subagent" && command.subtask !== false) || command.subtask === true
     const parts = isSubtask
       ? [
