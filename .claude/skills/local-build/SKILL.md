@@ -26,7 +26,11 @@ Use this skill only inside the OpenCode repository root.
 4. Build the local binary:
    - `/opt/homebrew/bin/bun install` when dependencies may be missing or stale
    - `/opt/homebrew/bin/bun run --cwd packages/opencode script/build.ts --single --skip-install`
-5. Install the built binary to `~/.local/bin/opencode`
+5. Install the built binary to `~/.local/bin/opencode`:
+   - **Always `rm` before `cp`** to avoid macOS `com.apple.provenance` xattr issues.
+     On macOS Sequoia, copying over an existing binary inherits a provenance tag
+     that causes the OS to kill the process on launch from persistent paths.
+   - `rm -f ~/.local/bin/opencode && cp packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode`
 6. Verify:
    - `which opencode`
    - `opencode --version`

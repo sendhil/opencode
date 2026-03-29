@@ -39,8 +39,14 @@ Install the built binary into `~/.local/bin`:
 
 ```sh
 install -d -m 755 ~/.local/bin
-install -m 755 packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode
+rm -f ~/.local/bin/opencode
+cp packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode
+chmod 755 ~/.local/bin/opencode
 ```
+
+> **macOS Sequoia note**: Always `rm` before `cp`. Copying over an existing binary
+> inherits a `com.apple.provenance` extended attribute that causes macOS to kill
+> the process on launch from persistent paths like `~/.local/bin`.
 
 Verify the local install:
 
@@ -68,7 +74,9 @@ Rebuild and reinstall:
 
 ```sh
 /opt/homebrew/bin/bun run --cwd packages/opencode script/build.ts --single --skip-install
-install -m 755 packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode
+rm -f ~/.local/bin/opencode
+cp packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode
+chmod 755 ~/.local/bin/opencode
 ```
 
 Verify again:
@@ -101,5 +109,23 @@ If Bun is not on `PATH`, use the explicit path:
 If the rebuilt binary does not pick up the latest changes, reinstall it explicitly:
 
 ```sh
-install -m 755 packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode
+rm -f ~/.local/bin/opencode
+cp packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode
+chmod 755 ~/.local/bin/opencode
+```
+
+If the binary is killed immediately on launch (`KILL` / exit 137), the
+`com.apple.provenance` xattr is likely present. Ensure you `rm` before `cp`
+(see above). You can verify with:
+
+```sh
+xattr ~/.local/bin/opencode
+```
+
+If `com.apple.provenance` appears, remove and recopy:
+
+```sh
+rm -f ~/.local/bin/opencode
+cp packages/opencode/dist/opencode-darwin-arm64/bin/opencode ~/.local/bin/opencode
+chmod 755 ~/.local/bin/opencode
 ```
