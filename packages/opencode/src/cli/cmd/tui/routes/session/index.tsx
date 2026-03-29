@@ -57,6 +57,7 @@ import { TodoItem } from "../../component/todo-item"
 import { DialogMessage } from "./dialog-message"
 import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
+import { DialogAsk } from "./dialog-ask"
 import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
@@ -502,6 +503,17 @@ export function Session() {
               variant: "error",
             })
           })
+      },
+    },
+    {
+      title: "Ask a question",
+      value: "session.ask",
+      category: "Session",
+      slash: {
+        name: "ask",
+      },
+      onSelect: (dialog) => {
+        DialogAsk.show(dialog, route.sessionID)
       },
     },
     {

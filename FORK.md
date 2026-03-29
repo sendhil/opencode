@@ -51,6 +51,24 @@ changes are safe to drop if upstream adopts the same fix.
   abort-if-busy handling. Cost display resets to $0 after clear (cost is derived
   from messages).
 
+### feat(tui): add /ask command for read-only questions during active sessions
+
+- **Commit**: (this commit)
+- **Files**: `packages/opencode/src/agent/agent.ts`,
+  `packages/opencode/src/cli/cmd/tui/routes/session/dialog-ask.tsx` (new),
+  `packages/opencode/src/cli/cmd/tui/routes/session/index.tsx`,
+  `packages/opencode/src/server/routes/session.ts`,
+  `packages/opencode/src/session/prompt.ts`
+- **Upstream PR**: None — no upstream equivalent yet
+- **Safe to drop on upstream merge**: Yes, if upstream adds an equivalent /ask
+  or side-channel question feature
+- **Description**: Adds `/ask` slash command that lets the user ask a read-only
+  question with full session context. Runs as a side-channel via a hidden `ask`
+  agent with all tools denied, using `LLM.stream()` directly (same pattern as
+  `ensureTitle()`). Does not interrupt or queue with the main prompt loop. Shows
+  a DialogPrompt for input, a spinner while thinking, then the answer in a
+  dialog overlay.
+
 ## Doc/Tooling Only (no code changes, safe to drop)
 
 ### docs: add local build guide and Claude skill for source installs

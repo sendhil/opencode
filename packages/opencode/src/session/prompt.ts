@@ -1992,6 +1992,34 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     return result
   }
 
+  export async function ask(input: {
+    sessionID: SessionID
+    question: string
+    providerID: ProviderID
+    modelID: ModelID
+  }): Promise<string> {
+    const agent = await Agent.get("ask")
+    if (!agent) throw new Error("ask agent not found")
+    const model = await Provider.getModel(input.providerID, input.modelID)
+
+    const history = await MessageV2.filterCompacted(MessageV2.stream(input.sessionID))
+    const modelMessages = await MessageV2.toModelMessages(history, model)
+
+    const result = await LLM.stream({
+      agent,
+      user: { role: "user" } as MessageV2.User,
+      system: [],
+      tools: {},
+      model,
+      abort: new AbortController().signal,
+      sessionID: input.sessionID,
+      retries: 2,
+      messages: [...modelMessages, { role: "user" as const, content: input.question }],
+    })
+    const text = await result.text
+    return text.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim()
+  }
+
   async function ensureTitle(input: {
     session: Session.Info
     history: MessageV2.WithParts[]
