@@ -39,6 +39,19 @@ Unless the user explicitly asks for something else, fetch `upstream/dev` and mer
 - If the merge conflicts, stop immediately and report the conflicted files
 - Prefer non-interactive git commands only
 
+## Post-Merge: Check FORK.md for Superseded Patches
+
+After a successful merge (no conflicts), check `FORK.md` for fork-specific
+changes that may now be superseded by upstream:
+
+1. Read `FORK.md` and find entries with an **Upstream PR** field
+2. For each upstream PR URL, check if it was included in the merge:
+   - `gh pr view <number> --repo sst/opencode --json state,mergedAt`
+   - Or check the merge log for the PR's commits
+3. If an upstream PR has been merged, report the FORK.md entry as
+   **superseded** and recommend the user review it for removal
+4. Do NOT automatically remove entries or revert fork commits — just report
+
 ## Reporting
 
 When you finish, report:
@@ -47,3 +60,4 @@ When you finish, report:
 - the upstream ref fetched
 - whether the merge was fast-forward, merge-commit, or conflicted
 - whether the branch is now ahead of `origin`
+- any FORK.md entries that are now superseded by merged upstream PRs

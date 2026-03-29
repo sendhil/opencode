@@ -475,6 +475,36 @@ export function Session() {
       },
     },
     {
+      title: "Clear session",
+      value: "session.clear",
+      category: "Session",
+      slash: {
+        name: "clear",
+      },
+      onSelect: async (dialog) => {
+        const confirmed = await DialogConfirm.show(
+          dialog,
+          "Clear session",
+          "This will remove all messages and todos from the current session. This cannot be undone.",
+        )
+        if (!confirmed) return
+        const status = sync.data.session_status?.[route.sessionID]
+        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
+        await sdk
+          .fetch(`${sdk.url}/session/${route.sessionID}/clear`, { method: "POST" })
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to clear session")
+            toast.show({ message: "Session cleared", variant: "success" })
+          })
+          .catch((error) => {
+            toast.show({
+              message: error instanceof Error ? error.message : "Failed to clear session",
+              variant: "error",
+            })
+          })
+      },
+    },
+    {
       title: "Unshare session",
       value: "session.unshare",
       keybind: "session_unshare",

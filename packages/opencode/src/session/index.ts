@@ -23,6 +23,7 @@ import { SessionPrompt } from "./prompt"
 import { fn } from "@/util/fn"
 import { Command } from "../command"
 import { Snapshot } from "@/snapshot"
+import { Todo } from "./todo"
 import { ProjectID } from "../project/schema"
 import { WorkspaceID } from "../control-plane/schema"
 import { SessionID, MessageID, PartID } from "./schema"
@@ -350,6 +351,7 @@ export namespace Session {
     readonly messages: (input: { sessionID: SessionID; limit?: number }) => Effect.Effect<MessageV2.WithParts[]>
     readonly children: (parentID: SessionID) => Effect.Effect<Info[]>
     readonly remove: (sessionID: SessionID) => Effect.Effect<void>
+    readonly clearMessages: (sessionID: SessionID) => Effect.Effect<void>
     readonly updateMessage: (msg: MessageV2.Info) => Effect.Effect<MessageV2.Info>
     readonly removeMessage: (input: { sessionID: SessionID; messageID: MessageID }) => Effect.Effect<MessageID>
     readonly removePart: (input: {
@@ -616,6 +618,20 @@ export namespace Session {
         })
       })
 
+      const clearMessages = Effect.fn("Session.clearMessages")(function* (sessionID: SessionID) {
+        const msgs = yield* messages({ sessionID })
+        for (const msg of msgs) {
+          yield* Effect.sync(() =>
+            SyncEvent.run(MessageV2.Event.Removed, {
+              sessionID,
+              messageID: msg.info.id,
+            }),
+          )
+        }
+        yield* Effect.sync(() => Todo.update({ sessionID, todos: [] }))
+        yield* patch(sessionID, { revert: null, time: { updated: Date.now() } })
+      })
+
       const removeMessage = Effect.fn("Session.removeMessage")(function* (input: {
         sessionID: SessionID
         messageID: MessageID
@@ -688,6 +704,7 @@ export namespace Session {
         messages,
         children,
         remove,
+        clearMessages,
         updateMessage,
         removeMessage,
         removePart,
@@ -867,6 +884,7 @@ export namespace Session {
 
   export const children = fn(SessionID.zod, (id) => runPromise((svc) => svc.children(id)))
   export const remove = fn(SessionID.zod, (id) => runPromise((svc) => svc.remove(id)))
+  export const clearMessages = fn(SessionID.zod, (id) => runPromise((svc) => svc.clearMessages(id)))
   export const updateMessage = fn(MessageV2.Info, (msg) => runPromise((svc) => svc.updateMessage(msg)))
 
   export const removeMessage = fn(z.object({ sessionID: SessionID.zod, messageID: MessageID.zod }), (input) =>

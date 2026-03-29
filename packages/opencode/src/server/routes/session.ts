@@ -242,6 +242,38 @@ export const SessionRoutes = lazy(() =>
         return c.json(true)
       },
     )
+    .post(
+      "/:sessionID/clear",
+      describeRoute({
+        summary: "Clear session messages",
+        description:
+          "Remove all messages and todos from a session while keeping the session itself. The session's revert state is also cleared.",
+        operationId: "session.clear",
+        responses: {
+          200: {
+            description: "Successfully cleared session messages",
+            content: {
+              "application/json": {
+                schema: resolver(z.boolean()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: SessionID.zod,
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        SessionPrompt.assertNotBusy(sessionID)
+        await Session.clearMessages(sessionID)
+        return c.json(true)
+      },
+    )
     .patch(
       "/:sessionID",
       describeRoute({

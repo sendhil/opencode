@@ -478,7 +478,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       category: "Session",
       slash: {
         name: "new",
-        aliases: ["clear"],
       },
       onSelect: () => {
         const current = promptRef.current
