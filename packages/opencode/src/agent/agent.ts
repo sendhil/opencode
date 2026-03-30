@@ -230,24 +230,6 @@ export namespace Agent {
               ),
               prompt: PROMPT_SUMMARY,
             },
-            ask: {
-              name: "ask",
-              mode: "primary",
-              options: {},
-              native: true,
-              hidden: true,
-              permission: Permission.merge(
-                defaults,
-                Permission.fromConfig({
-                  "*": "deny",
-                }),
-                user,
-              ),
-              prompt:
-                "You are answering a question from the user about the current coding session. " +
-                "Answer concisely using the conversation context. Do not take any actions or use any tools. " +
-                "If you don't have enough context to answer, say so briefly.",
-            },
           }
 
           for (const [key, value] of Object.entries(cfg.agent ?? {})) {

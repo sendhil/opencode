@@ -32,6 +32,7 @@ import { Prompt, type PromptRef } from "@tui/component/prompt"
 import type { AssistantMessage, Part, ToolPart, UserMessage, TextPart, ReasoningPart } from "@opencode-ai/sdk/v2"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
+import { Identifier } from "@/id/id"
 import type { Tool } from "@/tool/tool"
 import type { ReadTool } from "@/tool/read"
 import type { WriteTool } from "@/tool/write"
@@ -57,7 +58,6 @@ import { TodoItem } from "../../component/todo-item"
 import { DialogMessage } from "./dialog-message"
 import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
-import { DialogAsk } from "./dialog-ask"
 import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
@@ -83,6 +83,11 @@ import { UI } from "@/cli/ui.ts"
 import { useTuiConfig } from "../../context/tui-config"
 
 addDefaultParsers(parsers.parsers)
+
+type BtwState =
+  | { type: "waiting" }
+  | { type: "loading"; question: string; userMessageID: string }
+  | { type: "response"; question: string; responseMessageID: string }
 
 class CustomSpeedScroll implements ScrollAcceleration {
   constructor(private speed: number) {}
@@ -128,7 +133,8 @@ export function Session() {
       .filter((x) => x.parentID === parentID || x.id === parentID)
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
-  const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const messages = createMemo(() => (sync.data.message[route.sessionID] ?? []).filter((m) => !m.btw))
+  const [btwState, setBtwState] = createSignal<BtwState | null>(null)
   const permissions = createMemo(() => {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.permission[x.id] ?? [])
@@ -316,6 +322,66 @@ export function Session() {
       if (!scroll || scroll.isDestroyed) return
       scroll.scrollTo(scroll.scrollHeight)
     }, 50)
+  }
+
+  // Watch for btw response arriving via sync events
+  createEffect(() => {
+    const state = btwState()
+    if (!state || state.type !== "loading") return
+    const msgs = sync.data.message[route.sessionID] ?? []
+    const response = msgs.find(
+      (m): m is AssistantMessage =>
+        m.role === "assistant" &&
+        (m as AssistantMessage).parentID === state.userMessageID &&
+        m.btw === true &&
+        !!(m as AssistantMessage).finish &&
+        !["tool-calls", "unknown"].includes((m as AssistantMessage).finish!),
+    )
+    if (response) {
+      setBtwState({ type: "response", question: state.question, responseMessageID: response.id })
+    }
+  })
+
+  // Dismiss btw with esc (any state) or enter (response state)
+  useKeyboard((evt) => {
+    const state = btwState()
+    if (!state) return
+    if (evt.name === "escape") {
+      setBtwState(null)
+      evt.preventDefault()
+      evt.stopPropagation()
+    } else if (state.type === "response" && evt.name === "return") {
+      setBtwState(null)
+      evt.preventDefault()
+      evt.stopPropagation()
+    }
+  })
+
+  const btwBeforeSubmit = (text: string): boolean => {
+    const state = btwState()
+    if (!state || state.type !== "waiting") return false
+    const sessionID = session()?.id
+    if (!sessionID) {
+      setBtwState(null)
+      return false
+    }
+    const userMessageID = Identifier.ascending("message")
+    setBtwState({ type: "loading", question: text, userMessageID })
+    sdk.client.session
+      .promptAsync({
+        sessionID,
+        btw: true,
+        messageID: userMessageID,
+        parts: [{ type: "text", text }],
+      })
+      .catch((error) => {
+        toast.show({
+          message: error instanceof Error ? error.message : "Failed",
+          variant: "error",
+        })
+        setBtwState(null)
+      })
+    return true
   }
 
   const local = useLocal()
@@ -506,14 +572,17 @@ export function Session() {
       },
     },
     {
-      title: "Ask a question",
-      value: "session.ask",
+      title: "Ask a quick question",
+      description: "Ask a quick question about your current work without adding to the conversation history.",
+      value: "session.btw",
+      keybind: "btw",
       category: "Session",
       slash: {
-        name: "ask",
+        name: "btw",
       },
       onSelect: (dialog) => {
-        DialogAsk.show(dialog, route.sessionID)
+        setBtwState({ type: "waiting" })
+        dialog.clear()
       },
     },
     {
@@ -1193,6 +1262,7 @@ export function Session() {
                   </Switch>
                 )}
               </For>
+              <BtwSection state={btwState()} sync={sync} sessionID={route.sessionID} />
             </scrollbox>
             <box flexShrink={0}>
               <Show when={permissions().length > 0}>
@@ -1215,6 +1285,7 @@ export function Session() {
                   }
                 }}
                 disabled={permissions().length > 0 || questions().length > 0}
+                onBeforeSubmit={btwBeforeSubmit}
                 onSubmit={() => {
                   toBottom()
                 }}
@@ -2298,4 +2369,73 @@ function filetype(input?: string) {
   const language = LANGUAGE_EXTENSIONS[ext]
   if (["typescriptreact", "javascriptreact", "javascript"].includes(language)) return "typescript"
   return language
+}
+
+function BtwSection(props: { state: BtwState | null; sync: ReturnType<typeof useSync>; sessionID: string }) {
+  const { theme, syntax } = useTheme()
+
+  const responseText = createMemo(() => {
+    const state = props.state
+    if (!state || state.type !== "response") return null
+    const msgs = props.sync.data.message[props.sessionID] ?? []
+    const msg = msgs.find((m) => m.id === state.responseMessageID)
+    if (!msg) return null
+    const parts = props.sync.data.part[msg.id] ?? []
+    return parts
+      .filter((p): p is TextPart => p.type === "text" && !(p as TextPart).synthetic)
+      .map((p) => p.text)
+      .join("")
+  })
+
+  return (
+    <Show when={props.state}>
+      <box
+        marginTop={1}
+        border={["left"]}
+        customBorderChars={SplitBorder.customBorderChars}
+        borderColor={theme.primary}
+        paddingLeft={2}
+        paddingTop={1}
+        paddingBottom={1}
+        flexShrink={0}
+        backgroundColor={theme.backgroundPanel}
+      >
+        <box flexDirection="row" gap={1}>
+          <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+            /btw
+          </text>
+          <Show when={props.state!.type !== "waiting"}>
+            <text fg={theme.textMuted}>{(props.state as { type: "loading" | "response"; question: string }).question}</text>
+          </Show>
+          <Show when={props.state!.type === "waiting"}>
+            <text fg={theme.textMuted}>Type your question and press enter...</text>
+          </Show>
+        </box>
+        <Switch>
+          <Match when={props.state!.type === "loading"}>
+            <box flexDirection="row" gap={1} marginTop={1}>
+              <Spinner />
+              <text fg={theme.textMuted}>Thinking...</text>
+            </box>
+          </Match>
+          <Match when={props.state!.type === "response" && responseText()}>
+            <box marginTop={1}>
+              <code
+                filetype="markdown"
+                drawUnstyledText={false}
+                streaming={false}
+                syntaxStyle={syntax()}
+                content={responseText()!.trim()}
+                conceal={false}
+                fg={theme.text}
+              />
+            </box>
+            <text fg={theme.textMuted} marginTop={1}>
+              enter/esc to close
+            </text>
+          </Match>
+        </Switch>
+      </box>
+    </Show>
+  )
 }

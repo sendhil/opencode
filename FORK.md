@@ -51,23 +51,31 @@ changes are safe to drop if upstream adopts the same fix.
   abort-if-busy handling. Cost display resets to $0 after clear (cost is derived
   from messages).
 
-### feat(tui): add /ask command for read-only questions during active sessions
+### feat(tui): add /btw command for inline side questions (replaces /ask)
 
 - **Commit**: (this commit)
-- **Files**: `packages/opencode/src/agent/agent.ts`,
-  `packages/opencode/src/cli/cmd/tui/routes/session/dialog-ask.tsx` (new),
+- **Files**: `packages/opencode/src/agent/agent.ts` (removed `ask` agent),
+  `packages/opencode/src/cli/cmd/tui/routes/session/dialog-ask.tsx` (deleted),
   `packages/opencode/src/cli/cmd/tui/routes/session/index.tsx`,
-  `packages/opencode/src/server/routes/session.ts`,
-  `packages/opencode/src/session/prompt.ts`
-- **Upstream PR**: None — no upstream equivalent yet
-- **Safe to drop on upstream merge**: Yes, if upstream adds an equivalent /ask
-  or side-channel question feature
-- **Description**: Adds `/ask` slash command that lets the user ask a read-only
-  question with full session context. Runs as a side-channel via a hidden `ask`
-  agent with all tools denied, using `LLM.stream()` directly (same pattern as
-  `ensureTitle()`). Does not interrupt or queue with the main prompt loop. Shows
-  a DialogPrompt for input, a spinner while thinking, then the answer in a
-  dialog overlay.
+  `packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx`,
+  `packages/opencode/src/server/routes/session.ts` (removed `/ask` route),
+  `packages/opencode/src/session/prompt.ts`,
+  `packages/opencode/src/session/message-v2.ts`,
+  `packages/sdk/js/src/v2/gen/sdk.gen.ts`,
+  `packages/sdk/js/src/v2/gen/types.gen.ts`
+- **Upstream PR**: https://github.com/sst/opencode/pull/17189
+- **Safe to drop on upstream merge**: Yes — drop when #17189 (or equivalent)
+  lands in upstream. Our implementation closely follows that PR.
+- **Description**: Replaces the `/ask` modal dialog with `/btw`, an inline side
+  question feature (like Claude Code's). Adds a `btw` boolean flag to
+  `UserMessage` and `AssistantMessage` schemas. Btw prompts run through
+  `btwLoop` using `SessionProcessor` (no tools), concurrent with the main loop.
+  Completed btw exchanges are filtered from `toModelMessages()` so they don't
+  pollute future context. The response renders inline in the session scroll area
+  via `BtwSection`, dismissible with esc/enter. Btw messages are hidden from the
+  main message list. Includes a Bedrock fix (not in PR #17189): strips
+  reasoning/thinking parts from btw history to avoid the API's immutable
+  thinking block constraint.
 
 ## Doc/Tooling Only (no code changes, safe to drop)
 

@@ -274,46 +274,6 @@ export const SessionRoutes = lazy(() =>
         return c.json(true)
       },
     )
-    .post(
-      "/:sessionID/ask",
-      describeRoute({
-        summary: "Ask a question",
-        description:
-          "Ask a read-only question using the session's conversation context. Runs concurrently with any in-progress turn — does not interrupt or queue.",
-        operationId: "session.ask",
-        responses: {
-          200: {
-            description: "Answer to the question",
-            content: {
-              "application/json": {
-                schema: resolver(z.object({ answer: z.string() })),
-              },
-            },
-          },
-          ...errors(400, 404),
-        },
-      }),
-      validator(
-        "param",
-        z.object({
-          sessionID: SessionID.zod,
-        }),
-      ),
-      validator(
-        "json",
-        z.object({
-          question: z.string(),
-          providerID: ProviderID.zod,
-          modelID: ModelID.zod,
-        }),
-      ),
-      async (c) => {
-        const { sessionID } = c.req.valid("param")
-        const { question, providerID, modelID } = c.req.valid("json")
-        const answer = await SessionPrompt.ask({ sessionID, question, providerID, modelID })
-        return c.json({ answer })
-      },
-    )
     .patch(
       "/:sessionID",
       describeRoute({

@@ -87,7 +87,14 @@ export namespace SessionPrompt {
     },
   )
 
-  export function assertNotBusy(sessionID: SessionID) {
+  const btwState = Instance.state(
+    () => ({} as Record<string, AbortController>),
+    async (current) => {
+      for (const ctrl of Object.values(current)) ctrl.abort()
+    },
+  )
+
+  export function assertNotBusy(sessionID: string) {
     const match = state()[sessionID]
     if (match) throw new Session.BusyError(sessionID)
   }
@@ -103,6 +110,7 @@ export namespace SessionPrompt {
       .optional(),
     agent: z.string().optional(),
     noReply: z.boolean().optional(),
+    btw: z.boolean().optional(),
     tools: z
       .record(z.string(), z.boolean())
       .optional()
@@ -185,6 +193,10 @@ export namespace SessionPrompt {
       return message
     }
 
+    if (input.btw) {
+      return btwLoop({ sessionID: input.sessionID, userMessage: message })
+    }
+
     return loop({ sessionID: input.sessionID })
   })
 
@@ -237,6 +249,67 @@ export namespace SessionPrompt {
       }),
     )
     return parts
+  }
+
+  async function btwLoop(input: {
+    sessionID: SessionID
+    userMessage: MessageV2.WithParts
+  }): Promise<MessageV2.WithParts> {
+    const { sessionID } = input
+    const controller = new AbortController()
+    btwState()[sessionID] = controller
+    try {
+      const allMsgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
+      // Filter out in-progress assistant messages to avoid incomplete context
+      const msgs = allMsgs.filter((m) => m.info.role === "user" || !!(m.info as MessageV2.Assistant).finish)
+      const lastUser = [...msgs].reverse().find((m) => m.info.role === "user" && !m.info.btw)
+      if (!lastUser) throw new Error("No user message found")
+      const lastUserInfo = lastUser.info as MessageV2.User
+      const model = await Provider.getModel(lastUserInfo.model.providerID, lastUserInfo.model.modelID)
+      const agent = await Agent.get(lastUserInfo.agent)
+      // toModelMessages includes the pending btw question as the final user turn
+      const rawMessages = await MessageV2.toModelMessages(msgs, model)
+      // Strip reasoning/thinking parts from history — the Anthropic/Bedrock API
+      // requires thinking blocks to be byte-identical to the original response,
+      // which we can't guarantee after round-tripping through storage. Btw
+      // doesn't need thinking context anyway.
+      const messages = rawMessages.map((msg) => {
+        if (!Array.isArray(msg.content)) return msg
+        const filtered = (msg.content as any[]).filter((p: any) => p.type !== "reasoning" && p.type !== "redacted")
+        if (filtered.length === msg.content.length) return msg
+        return { ...msg, content: filtered.length > 0 ? filtered : [{ type: "text" as const, text: "" }] } as typeof msg
+      })
+      const assistantMessage = (await Session.updateMessage({
+        id: MessageID.ascending(),
+        parentID: input.userMessage.info.id,
+        role: "assistant",
+        sessionID,
+        btw: true,
+        mode: agent!.name,
+        agent: agent!.name,
+        path: { cwd: Instance.directory, root: Instance.worktree },
+        cost: 0,
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        modelID: model.id,
+        providerID: model.providerID,
+        time: { created: Date.now() },
+      })) as MessageV2.Assistant
+      const processor = await SessionProcessor.create({ assistantMessage, sessionID, model, abort: controller.signal })
+      using _ = defer(() => InstructionPrompt.clear(processor.message.id))
+      await processor.process({
+        user: lastUserInfo,
+        agent: agent!,
+        abort: controller.signal,
+        sessionID,
+        system: await SystemPrompt.environment(model),
+        messages,
+        tools: {},
+        model,
+      })
+      return { info: processor.message, parts: [] } as MessageV2.WithParts
+    } finally {
+      delete btwState()[sessionID]
+    }
   }
 
   function start(sessionID: SessionID) {
@@ -307,7 +380,7 @@ export namespace SessionPrompt {
       let tasks: (MessageV2.CompactionPart | MessageV2.SubtaskPart)[] = []
       for (let i = msgs.length - 1; i >= 0; i--) {
         const msg = msgs[i]
-        if (!lastUser && msg.info.role === "user") lastUser = msg.info as MessageV2.User
+        if (!lastUser && msg.info.role === "user" && !msg.info.btw) lastUser = msg.info as MessageV2.User
         if (!lastAssistant && msg.info.role === "assistant") lastAssistant = msg.info as MessageV2.Assistant
         if (!lastFinished && msg.info.role === "assistant" && msg.info.finish)
           lastFinished = msg.info as MessageV2.Assistant
@@ -602,6 +675,7 @@ export namespace SessionPrompt {
           mode: agent.name,
           agent: agent.name,
           variant: lastUser.variant,
+          btw: lastUser.btw,
           path: {
             cwd: Instance.directory,
             root: Instance.worktree,
@@ -1024,6 +1098,7 @@ export namespace SessionPrompt {
       system: input.system,
       format: input.format,
       variant,
+      btw: input.btw,
     }
     using _ = defer(() => InstructionPrompt.clear(info.id))
 
@@ -1990,34 +2065,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     })
 
     return result
-  }
-
-  export async function ask(input: {
-    sessionID: SessionID
-    question: string
-    providerID: ProviderID
-    modelID: ModelID
-  }): Promise<string> {
-    const agent = await Agent.get("ask")
-    if (!agent) throw new Error("ask agent not found")
-    const model = await Provider.getModel(input.providerID, input.modelID)
-
-    const history = await MessageV2.filterCompacted(MessageV2.stream(input.sessionID))
-    const modelMessages = await MessageV2.toModelMessages(history, model)
-
-    const result = await LLM.stream({
-      agent,
-      user: { role: "user" } as MessageV2.User,
-      system: [],
-      tools: {},
-      model,
-      abort: new AbortController().signal,
-      sessionID: input.sessionID,
-      retries: 2,
-      messages: [...modelMessages, { role: "user" as const, content: input.question }],
-    })
-    const text = await result.text
-    return text.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim()
   }
 
   async function ensureTitle(input: {
