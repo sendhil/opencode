@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api:*)",
+      "Bash(python3:*)",
+      "Bash(opencode --version:*)",
+      "Bash(brew list:*)",
+      "Bash(/opt/homebrew/bin/bun run:*)",
+      "Bash(gh issue view:*)",
+      "Bash(bun typecheck)",
+      "Bash(bun test:*)",
+      "Bash(git apply:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nperf\\(tools\\): reduce tool description token usage by ~69% \\(upstream PR #11993\\)\n\nCondense bash, task, and todowrite tool description files to reduce\ntoken consumption while preserving essential instructions.\nEOF\n\\)\")"
+    ]
+  }
+}
