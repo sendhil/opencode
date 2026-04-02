@@ -901,9 +901,12 @@ describe("session.llm.stream", () => {
           .filter((item): item is string => item !== undefined)
 
         expect(text).toHaveLength(2)
-        expect(text[0]).toContain("You are a helpful assistant.")
-        expect(text[0]).toContain("Stay concise.")
-        expect(text[1]).toBe("Dynamic caller context.")
+        // Part 1: Static provider prompt (agent has no custom prompt, so default provider prompt is used)
+        expect(text[0]).toContain("OpenCode")
+        // Part 2: Dynamic content (input.system + user.system joined)
+        expect(text[1]).toContain("You are a helpful assistant.")
+        expect(text[1]).toContain("Stay concise.")
+        expect(text[1]).toContain("Dynamic caller context.")
       },
     })
   })
