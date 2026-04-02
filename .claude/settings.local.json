@@ -11,7 +11,8 @@
       "Bash(bun test:*)",
       "Bash(git apply:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nperf\\(tools\\): reduce tool description token usage by ~69% \\(upstream PR #11993\\)\n\nCondense bash, task, and todowrite tool description files to reduce\ntoken consumption while preserving essential instructions.\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nperf\\(tools\\): reduce tool description token usage by ~69% \\(upstream PR #11993\\)\n\nCondense bash, task, and todowrite tool description files to reduce\ntoken consumption while preserving essential instructions.\nEOF\n\\)\")",
+      "Bash(git commit:*)"
     ]
   }
 }
