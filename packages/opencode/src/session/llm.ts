@@ -88,19 +88,25 @@ export namespace LLM {
     const isOpenaiOauth = provider.id === "openai" && auth?.type === "oauth"
 
     const system: string[] = []
-    system.push(
-      [
-        // use agent prompt otherwise provider prompt
-        ...(input.agent.prompt ? [input.agent.prompt] : SystemPrompt.provider(input.model)),
-        // any custom prompt passed into this call
-        ...input.system,
-      ]
-        .filter((x) => x)
-        .join("\n"),
-    )
-    if (input.user.system) {
-      system.push(input.user.system)
-    }
+
+    // Part 1: Static agent/provider prompt (stable across all calls in a session)
+    const staticPrompt = [
+      ...(input.agent.prompt ? [input.agent.prompt] : SystemPrompt.provider(input.model)),
+    ]
+      .filter((x) => x)
+      .join("\n")
+
+    if (staticPrompt) system.push(staticPrompt)
+
+    // Part 2: Dynamic content (environment, instructions, user system prompt)
+    const dynamicPrompt = [
+      ...input.system,
+      ...(input.user.system ? [input.user.system] : []),
+    ]
+      .filter((x) => x)
+      .join("\n")
+
+    if (dynamicPrompt) system.push(dynamicPrompt)
 
     const count = system.length
     const head = system[0]
