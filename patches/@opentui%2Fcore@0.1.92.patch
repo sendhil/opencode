@@ -1,0 +1,13 @@
+diff --git a/index-jdn8a604.js b/index-jdn8a604.js
+index 19d0de3574bafd0055d0a3c55422349d44d4226b..370a8afa0d6fe10c616015bdebfd780efded4f7d 100644
+--- a/index-jdn8a604.js
++++ b/index-jdn8a604.js
+@@ -10754,7 +10754,7 @@ class MarkdownRenderable extends Renderable {
+     renderable.marginBottom = marginBottom;
+   }
+   shouldRenderSeparately(token) {
+-    return token.type === "code" || token.type === "table" || token.type === "blockquote";
++    return token.type === "code" || token.type === "table" || token.type === "blockquote" || token.type === "hr";
+   }
+   getInterBlockMargin(token, hasNextToken) {
+     if (!hasNextToken)

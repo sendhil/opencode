@@ -77,6 +77,21 @@ changes are safe to drop if upstream adopts the same fix.
   reasoning/thinking parts from btw history to avoid the API's immutable
   thinking block constraint.
 
+### fix(markdown): prevent hr tokens from causing frontmatter misparse
+
+- **Commit**: (this commit)
+- **Files**: `patches/@opentui%2Fcore@0.1.92.patch`, `package.json`
+- **Upstream PR**: https://github.com/anomalyco/opentui/pull/898
+- **Safe to drop on upstream merge**: Yes — drop when opentui publishes a
+  release containing PR #898 and OpenCode bumps the dependency
+- **Description**: When a markdown table is followed by `---` (thematic
+  break / hr), opentui's `buildRenderableTokens()` groups them into one
+  block. Tree-sitter's markdown parser then misinterprets the `---` as YAML
+  frontmatter, rendering everything between two `---` delimiters as green
+  monospace metadata instead of formatted markdown. The fix adds `"hr"` to
+  `shouldRenderSeparately()` so thematic breaks are rendered as independent
+  blocks. Applied as a bun patch against `@opentui/core@0.1.92`.
+
 ## Doc/Tooling Only (no code changes, safe to drop)
 
 ### docs: add local build guide and Claude skill for source installs
