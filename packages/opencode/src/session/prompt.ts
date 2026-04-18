@@ -1527,8 +1527,10 @@ export const layer = Layer.effect(
       })
       const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
       let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
+      const isSkill = cmd.source === "skill"
 
-      if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
+      // For skills, arguments are added as a separate visible part below.
+      if (!isSkill && placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
         template = template + "\n\n" + input.arguments
       }
 
@@ -1568,6 +1570,17 @@ export const layer = Layer.effect(
       }
 
       const templateParts = yield* resolvePromptParts(template)
+
+      // For skill-sourced commands, hide the template from the TUI but keep it
+      // in the LLM context. Show only the slash command invocation to the user.
+      if (isSkill) {
+        for (const part of templateParts) {
+          if (part.type === "text") (part as any).synthetic = true
+        }
+        const visible = input.arguments.trim() ? `/${input.command} ${input.arguments.trim()}` : `/${input.command}`
+        templateParts.push({ type: "text", text: visible })
+      }
+
       const isSubtask = (agent.mode === "subagent" && cmd.subtask !== false) || cmd.subtask === true
       const parts = isSubtask
         ? [
