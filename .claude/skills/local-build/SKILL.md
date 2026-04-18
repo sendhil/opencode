@@ -27,7 +27,11 @@ Use this skill only inside the OpenCode repository root.
    - `/opt/homebrew/bin/bun install` when dependencies may be missing or stale
    - `/opt/homebrew/bin/bun run --cwd packages/opencode script/build.ts --single --skip-install`
 5. Install the built binary to `~/.local/bin/opencode`
-6. Verify:
+6. Re-sign the installed binary to restore its ad-hoc code signature. On macOS,
+   overwriting an existing binary invalidates its signature and Gatekeeper will
+   SIGKILL it on next launch:
+   - `codesign --force --sign - ~/.local/bin/opencode`
+7. Verify:
    - `which opencode`
    - `opencode --version`
    - `opencode session list --max-count 3 --format json`
